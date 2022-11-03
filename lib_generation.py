@@ -129,7 +129,9 @@ def get_Mahalanobis_score(model, test_loader, num_classes, outf, out_flag, net_t
     return: Mahalanobis score from layer_index
     '''
     model.eval()
-    Mahalanobis = []
+    Mahalanobis = torch.tensor([1]).cuda()
+
+    # Mahalanobis = []
     
     if out_flag == True:
         temp_file_name = '%s/confidence_Ga%s_In.txt'%(outf, str(layer_index))
@@ -192,7 +194,9 @@ def get_Mahalanobis_score(model, test_loader, num_classes, outf, out_flag, net_t
                 noise_gaussian_score = torch.cat((noise_gaussian_score, term_gau.view(-1,1)), 1)      
 
         noise_gaussian_score, _ = torch.max(noise_gaussian_score, dim=1)
-        Mahalanobis.extend(noise_gaussian_score.cpu().numpy())
+        # print(noise_gaussian_score)
+        Mahalanobis = torch.cat((Mahalanobis, noise_gaussian_score))
+        # Mahalanobis.extend(noise_gaussian_score.cpu().numpy())
         
         for i in range(data.size(0)):
             g.write("{}\n".format(noise_gaussian_score[i]))

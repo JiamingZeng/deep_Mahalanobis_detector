@@ -11,8 +11,8 @@ import torchvision.transforms as transforms
 import numpy as np
 import random
 
-def perturb(model, x_nat, x_adv, y, step_size=0.007, epsilon=0.031,
-                 num_steps=10, random_start = False, l2 = False, attack=True, celoss = True, bound=True):
+def perturb(model, cand_model, x_nat, x_adv, y, step_size=0.007, epsilon=0.031,
+                 num_steps=10, random_start = False, l2 = False, attack=True, celoss = "Cross", bound=True):
     model.eval()
 
     if random_start: # done manually in ATTA training code
@@ -40,10 +40,13 @@ def perturb(model, x_nat, x_adv, y, step_size=0.007, epsilon=0.031,
     x_adv.requires_grad_()
     batch_size = len(x_nat)
 
-    if celoss:
+    if celoss == 'Cross':
         ce_loss = nn.CrossEntropyLoss()
-    else:
-        ce_loss = nn.BCELoss()
+    elif celoss == "BCE":
+        bce_loss = nn.BCELoss()
+    elif celoss == "combined":
+        ce_loss = nn.CrossEntropyLoss()
+        bce_loss = nn.BCELoss()
 
     for i in range(num_steps):
         x_adv.requires_grad_()
@@ -54,7 +57,15 @@ def perturb(model, x_nat, x_adv, y, step_size=0.007, epsilon=0.031,
             # loss = ce_loss(model(cifar_norm(x_adv)), y)
             # loss = ce_loss(model(x_adv), y)
             if attack:
-                loss = ce_loss(model(x_adv), y)
+                if celoss == "combined":
+                    # push away from one meaning id
+                    d_labels = torch.unsqueeze(torch.ones(y.size()[0], dtype=torch.float), dim=1).cuda()
+                    loss = ce_loss(model(x_adv), y) + bce_loss(cand_model(x_adv), d_labels)
+                elif celoss == "Cross":
+                    loss = ce_loss(model(x_adv), y)
+                elif celoss == "BCE":
+                    d_labels = torch.unsqueeze(torch.zeros(y.size()[0], dtype=torch.float), dim=1).cuda()
+                    loss = bce_loss(cand_model(x_adv), d_labels)
             else:
                 loss = ce_loss(model(x_adv), torch.tensor([10] * y.size(dim=0)).to(y.device))
 
